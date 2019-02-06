@@ -23,7 +23,7 @@ X <- mvrnorm(n = n, mu = rep(0, p) , Sigma = var.matrix, empirical = F,
 test <- cov(data)
 
 ## Create Betas
-b.true <- c(rep(strong.beta,10),rep(weak.beta,10),rep(0,10), rep(1,10))
+b.true <- c(rep(strong.beta,10),rep(weak.beta,10),rep(0,10), rep(weak.beta,10))
 
 ## Generate outcome
 
