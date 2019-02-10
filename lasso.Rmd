@@ -1,0 +1,50 @@
+---
+title: "lasso"
+author: "Yuxin"
+date: "2019年2月10日"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(glmnet)
+library(matrixcalc)
+library(tidyverse)
+library(MASS)
+```
+
+
+
+```{r lasso}
+set.seed(1)
+# define parameters
+n = 10000
+p = 40
+var.matrix = diag(p)
+cor.base = 0.30
+strong.beta = 10
+weak.beta = 1
+# create correlation matrix
+var.matrix[1, 31:40] = cor.base
+var.matrix[31:40, 1] = cor.base
+# ensure that variance-covariance matrix is positive, definite
+eigen(var.matrix)$values
+is.positive.definite(var.matrix)
+# generate data
+X = mvrnorm(n = n, mu = rep(0, p), 
+            Sigma = var.matrix, empirical = F, tol = 0.1)
+# create betas
+b.true = c(
+  rep(strong.beta, 10), # 1 - 10 betas are strong
+  rep(weak.beta, 10), # 11 - 20 betas are weak-and-independent
+  rep(0, 10), # 21 - 30 betas are null
+  rep(1, 10) # 31 - 40 are weak-but-correlated
+)
+# generate outcome
+Y = 1 + X %*% b.true + rnorm(n)
+data = data.frame(cbind(X, Y))
+names(data)[p + 1] <- "y"
+fit.lasso <-cv.glmnet(X, Y, nfolds = 10, type.measure = "mse")
+param.best <- fit.lasso$glmnet.fit$beta[, fit.lasso$lambda == fit.lasso$lambda.1se] 
+param.best[param.best != 0]
+```
+
