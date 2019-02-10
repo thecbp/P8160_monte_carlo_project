@@ -11,16 +11,20 @@ library(MASS)
 library(matrixcalc)
 ```
 
-```{r data-generation }
-set.seed(1)
+# Test out a single simulation run
+
+```{r data-simulation, eval = FALSE }
+set.seed(2)
 
 # define parameters
 n = 10000
 p = 40
+c = 1
+weak.threshold = c * sqrt(log(p) / n)
 var.matrix = diag(p)
 cor.base = 0.30
-strong.beta = 10
-weak.beta = 1
+strong.beta = 2
+weak.beta = weak.threshold
 
 # create correlation matrix
 var.matrix[1, 31:40] = cor.base
@@ -37,18 +41,108 @@ X = mvrnorm(n = n, mu = rep(0, p),
 # create betas
 b.true = c(
   rep(strong.beta, 10), # 1 - 10 betas are strong
-  rep(weak.beta, 10), # 11 - 20 betas are weak-and-independent
+  rep(weak.threshold, 10), # 11 - 20 betas are weak-and-independent
   rep(0, 10), # 21 - 30 betas are null
-  rep(1, 10) # 31 - 40 are weak-but-correlated
+  rep(weak.threshold, 10) # 31 - 40 are weak-but-correlated
   )
 
 # generate outcome
-
 Y = 1 + X %*% b.true + rnorm(n)
-data = data.frame(cbind(X, Y))
-names(df)[p + 1] = "y"
+data = as.tibble(data.frame(cbind(X, Y)))
 
+# clearly demarcate columns
+nums = seq(1:10)
+cols = c(
+  paste("Strong", nums, sep = ""),
+  paste("WAI", nums, sep = ""),
+  paste("Null", nums, sep = ""),
+  paste("WBC", nums, sep = ""),
+  "Y"
+)
+colnames(data) = cols
 ```
+
+```{r forward-selection, eval = FALSE }
+fit.forward = step(object = lm(Y ~ 1, data = data),
+                   scope = formula(lm(Y ~ ., data = data)), 
+                   direction = "forward", trace = 0)
+summary(fit.forward)
+```
+
+# Multiple simulations
+
+```{r simulation-functions }
+simulate.data = function(n = 10000, 
+                         c = 1, cor.base = 0.30, strong.coeff = 2,
+                         num.strong = 10, num.wai = 10, num.wbc = 10, num.null = 10) {
+  
+  p = num.strong + num.wai + num.wbc + num.null
+  weak.threshold = c * sqrt(log(p) / n)
+  var.matrix = diag(p)
+  
+  # ensure 21 - 30 covariates are correlated to the first strong covariate
+  var.matrix[1, (num.strong + num.wai + 1):(num.strong + num.wai + num.wbc)] = cor.base
+  var.matrix[(num.strong + num.wai + 1):(num.strong + num.wai + num.wbc), 1] = cor.base
+  
+  # simulate the data from multivariate normal
+  X = mvrnorm(n = n, mu = rep(0, p), Sigma = var.matrix, empirical = F, tol = 0.1)
+  
+  b.true = c(
+    rep(strong.coeff, num.strong),
+    rep(weak.threshold, num.wai), 
+    rep(weak.threshold, num.wbc),
+    rep(0, num.null) 
+  )
+  
+  Y = 1 + X %*% b.true + rnorm(n)
+  data = as.tibble(data.frame(cbind(X, Y)))
+  
+  # clearly demarcate columns
+  cols = c(
+    paste("Strong", num.strong, sep = ""),
+    paste("WAI", num.wai, sep = ""),
+    paste("WBC", num.wbc, sep = ""),
+    paste("Null", num.null, sep = ""),
+    "Y"
+  )
+  colnames(data) = cols
+  return(data)
+}
+
+create.model = function(data) {
+  fit = step(object = lm(Y ~ 1, data = data),
+             scope = formula(lm(Y ~ ., data = data)), 
+             direction = "forward", trace = 0)
+  return(fit)
+}
+
+analyze.prct.captured = function(betas) {
+  nums = seq(1:10)
+  strongs = paste("Strong", nums, sep = "")
+  wais = paste("WAI", nums, sep = "")
+  wbcs = paste("WBC", nums, sep = "")
+  nulls = paste("Null", nums, sep = "") 
+  captured = names(betas)
+
+  return(list(
+   prct.strong = length(intersect(captured, strongs)) / length(strongs),
+   prct.wai = length(intersect(captured, wais)) / length(wais),
+   prct.wbc = length(intersect(captured, wbcs)) / length(wbcs),
+   prct.null = length(intersect(captured, nulls)) / length(nulls)
+  ))
+}
+
+gather.coefficients = function() {
+  return(0)
+}
+```
+
+```{r}
+data = simulate.data()
+fit = create.model(data)
+prcts = analyze.prct.captured(fit$coefficients)
+```
+
 
 
 
