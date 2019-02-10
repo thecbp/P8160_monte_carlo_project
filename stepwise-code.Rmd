@@ -1,0 +1,54 @@
+---
+title: "Stepwise Forward Selection"
+author: "Christian Pascual"
+date: "2/10/2019"
+output: html_document
+---
+
+```{r libraries, message = FALSE}
+library(tidyverse)
+library(MASS)
+library(matrixcalc)
+```
+
+```{r data-generation }
+set.seed(1)
+
+# define parameters
+n = 10000
+p = 40
+var.matrix = diag(p)
+cor.base = 0.30
+strong.beta = 10
+weak.beta = 1
+
+# create correlation matrix
+var.matrix[1, 31:40] = cor.base
+var.matrix[31:40, 1] = cor.base
+
+# ensure that variance-covariance matrix is positive, definite
+eigen(var.matrix)$values
+is.positive.definite(var.matrix)
+
+# generate data
+X = mvrnorm(n = n, mu = rep(0, p), 
+             Sigma = var.matrix, empirical = F, tol = 0.1)
+
+# create betas
+b.true = c(
+  rep(strong.beta, 10), # 1 - 10 betas are strong
+  rep(weak.beta, 10), # 11 - 20 betas are weak-and-independent
+  rep(0, 10), # 21 - 30 betas are null
+  rep(1, 10) # 31 - 40 are weak-but-correlated
+  )
+
+# generate outcome
+
+Y = 1 + X %*% b.true + rnorm(n)
+data = data.frame(cbind(X, Y))
+names(df)[p + 1] = "y"
+
+```
+
+
+
