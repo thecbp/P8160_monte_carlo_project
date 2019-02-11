@@ -99,10 +99,10 @@ simulate.data = function(n = 10000,
   
   # clearly demarcate columns
   cols = c(
-    paste("Strong", num.strong, sep = ""),
-    paste("WAI", num.wai, sep = ""),
-    paste("WBC", num.wbc, sep = ""),
-    paste("Null", num.null, sep = ""),
+    paste("Strong", 1:num.strong, sep = ""),
+    paste("WAI", 1:num.wai, sep = ""),
+    paste("WBC", 1:num.wbc, sep = ""),
+    paste("Null", 1:num.null, sep = ""),
     "Y"
   )
   colnames(data) = cols
@@ -117,7 +117,7 @@ create.model = function(data) {
 }
 
 analyze.prct.captured = function(betas) {
-  nums = seq(1:10)
+  nums = seq(1:length(betas))
   strongs = paste("Strong", nums, sep = "")
   wais = paste("WAI", nums, sep = "")
   wbcs = paste("WBC", nums, sep = "")
@@ -143,6 +143,16 @@ fit = create.model(data)
 prcts = analyze.prct.captured(fit$coefficients)
 ```
 
+```{r}
+num.strong = 10; num.wai = 10; num.wbc = 10; num.null = 10
+cols = c(
+    paste("Strong", num.strong, sep = ""),
+    paste("WAI", num.wai, sep = ""),
+    paste("WBC", num.wbc, sep = ""),
+    paste("Null", num.null, sep = ""),
+    "Y"
+  )
+```
 
 
 
