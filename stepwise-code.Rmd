@@ -11,78 +11,26 @@ library(MASS)
 library(matrixcalc)
 ```
 
-# Test out a single simulation run
-
-```{r data-simulation, eval = FALSE }
-set.seed(2)
-
-# define parameters
-n = 10000
-p = 40
-c = 1
-weak.threshold = c * sqrt(log(p) / n)
-var.matrix = diag(p)
-cor.base = 0.30
-strong.beta = 2
-weak.beta = weak.threshold
-
-# create correlation matrix
-var.matrix[1, 31:40] = cor.base
-var.matrix[31:40, 1] = cor.base
-
-# ensure that variance-covariance matrix is positive, definite
-eigen(var.matrix)$values
-is.positive.definite(var.matrix)
-
-# generate data
-X = mvrnorm(n = n, mu = rep(0, p), 
-             Sigma = var.matrix, empirical = F, tol = 0.1)
-
-# create betas
-b.true = c(
-  rep(strong.beta, 10), # 1 - 10 betas are strong
-  rep(weak.threshold, 10), # 11 - 20 betas are weak-and-independent
-  rep(0, 10), # 21 - 30 betas are null
-  rep(weak.threshold, 10) # 31 - 40 are weak-but-correlated
-  )
-
-# generate outcome
-Y = 1 + X %*% b.true + rnorm(n)
-data = as.tibble(data.frame(cbind(X, Y)))
-
-# clearly demarcate columns
-nums = seq(1:10)
-cols = c(
-  paste("Strong", nums, sep = ""),
-  paste("WAI", nums, sep = ""),
-  paste("Null", nums, sep = ""),
-  paste("WBC", nums, sep = ""),
-  "Y"
-)
-colnames(data) = cols
-```
-
-```{r forward-selection, eval = FALSE }
-fit.forward = step(object = lm(Y ~ 1, data = data),
-                   scope = formula(lm(Y ~ ., data = data)), 
-                   direction = "forward", trace = 0)
-summary(fit.forward)
-```
-
 # Multiple simulations
 
 ```{r simulation-functions }
-simulate.data = function(n = 10000, 
-                         c = 1, cor.base = 0.30, strong.coeff = 2,
-                         num.strong = 10, num.wai = 10, num.wbc = 10, num.null = 10) {
+set.seed(1)
+simulate.data = function(n = 300, 
+                         c = 1, cor.base = 0.30, strong.coeff = 5,
+                         num.strong = 3, num.wai = 10, num.wbc = 10, desired.p = 100) {
   
-  p = num.strong + num.wai + num.wbc + num.null
+  num.null = desired.p - (num.strong + num.wai + num.wbc)
+  p = desired.p
   weak.threshold = c * sqrt(log(p) / n)
   var.matrix = diag(p)
   
   # ensure 21 - 30 covariates are correlated to the first strong covariate
   var.matrix[1, (num.strong + num.wai + 1):(num.strong + num.wai + num.wbc)] = cor.base
   var.matrix[(num.strong + num.wai + 1):(num.strong + num.wai + num.wbc), 1] = cor.base
+  
+  if (!is.positive.definite(var.matrix)) {
+    return("Given parameters do not form positive definite variance-covariance matrix.")
+  }
   
   # simulate the data from multivariate normal
   X = mvrnorm(n = n, mu = rep(0, p), Sigma = var.matrix, empirical = F, tol = 0.1)
@@ -115,44 +63,64 @@ create.model = function(data) {
              direction = "forward", trace = 0)
   return(fit)
 }
+```
 
-analyze.prct.captured = function(betas) {
-  nums = seq(1:length(betas))
-  strongs = paste("Strong", nums, sep = "")
-  wais = paste("WAI", nums, sep = "")
-  wbcs = paste("WBC", nums, sep = "")
-  nulls = paste("Null", nums, sep = "") 
+```{r helper-functions }
+# Functions to help with gathering simulation data
+
+# task 1: gather how many predictors were missed by forward selection/LASSO
+analyze.missed = function(betas,
+                          num.strong = 3, num.wai = 10, num.wbc = 10) {
+  strongs = paste("Strong", 1:num.strong, sep = "")
+  wais = paste("WAI", 1:num.wai, sep = "")
+  wbcs = paste("WBC", 1:num.wbc, sep = "")
   captured = names(betas)
 
   return(list(
    prct.strong = length(intersect(captured, strongs)) / length(strongs),
    prct.wai = length(intersect(captured, wais)) / length(wais),
-   prct.wbc = length(intersect(captured, wbcs)) / length(wbcs),
-   prct.null = length(intersect(captured, nulls)) / length(nulls)
+   prct.wbc = length(intersect(captured, wbcs)) / length(wbcs)
   ))
 }
 
-gather.coefficients = function() {
-  return(0)
+# task 2 subtask: remove weak predictors from the data before fitting model to it
+remove.weaknesses = function(data, rm.wai = 0, rm.wbc = 0) {
+  # definte which columns we should remove from WBC and WAI
+  cols.to.remove = c(
+    paste("WAI", 1:rm.wai, sep = ""),
+    paste("WBC", 1:rm.wbc, sep = "")
+  )
+
+  return(data[, !(names(data) %in% cols.to.remove)])
+}
+
+# task 2 subtask: get the 
+analyze.coefficients = function(betas) {
+  names(betas) = betas
 }
 ```
 
+
 ```{r}
-data = simulate.data()
-fit = create.model(data)
-prcts = analyze.prct.captured(fit$coefficients)
+data1 = simulate.data()
+data2 = simulate.data()
+# test = remove.weaknesses(data, rm.wai = 1, rm.wbc = 1)
+fit1 = create.model(data1)
+fit2 = create.model(data2)
+prcts1 = analyze.missed(fit1$coefficients)
+prcts2 = analyze.missed(fit2$coefficients)
 ```
 
 ```{r}
-num.strong = 10; num.wai = 10; num.wbc = 10; num.null = 10
-cols = c(
-    paste("Strong", num.strong, sep = ""),
-    paste("WAI", num.wai, sep = ""),
-    paste("WBC", num.wbc, sep = ""),
-    paste("Null", num.null, sep = ""),
-    "Y"
-  )
+test = as.tibble(
+  bind_rows(fit1$coefficients, fit2$coefficients)
+)
+test2 = as.tibble(
+  bind_rows(prcts1, prcts2)
+)
 ```
+
+
 
 
 
