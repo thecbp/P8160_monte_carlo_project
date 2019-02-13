@@ -14,17 +14,15 @@ library(matrixcalc)
 # Multiple simulations
 
 ```{r simulation-functions }
-set.seed(1)
 simulate.data = function(n = 300, 
                          c = 1, cor.base = 0.30, strong.coeff = 5,
-                         num.strong = 3, num.wai = 10, num.wbc = 10, desired.p = 100) {
+                         num.strong = 5, num.wai = 10, num.wbc = 10, num.p = 100) {
   
-  num.null = desired.p - (num.strong + num.wai + num.wbc)
-  p = desired.p
-  weak.threshold = c * sqrt(log(p) / n)
-  var.matrix = diag(p)
+  num.null = num.p - (num.strong + num.wai + num.wbc)
+  weak.threshold = c * sqrt(log(num.p) / n)
+  var.matrix = diag(num.p)
   
-  # ensure 21 - 30 covariates are correlated to the first strong covariate
+  # ensure covariates are correlated to the first strong covariate
   var.matrix[1, (num.strong + num.wai + 1):(num.strong + num.wai + num.wbc)] = cor.base
   var.matrix[(num.strong + num.wai + 1):(num.strong + num.wai + num.wbc), 1] = cor.base
   
@@ -33,7 +31,7 @@ simulate.data = function(n = 300,
   }
   
   # simulate the data from multivariate normal
-  X = mvrnorm(n = n, mu = rep(0, p), Sigma = var.matrix, empirical = F, tol = 0.1)
+  X = mvrnorm(n = n, mu = rep(0, num.p), Sigma = var.matrix, empirical = F, tol = 0.1)
   
   b.true = c(
     rep(strong.coeff, num.strong),
@@ -57,7 +55,7 @@ simulate.data = function(n = 300,
   return(data)
 }
 
-create.model = function(data) {
+create.forward.model = function(data) {
   fit = step(object = lm(Y ~ 1, data = data),
              scope = formula(lm(Y ~ ., data = data)), 
              direction = "forward", trace = 0)
@@ -69,17 +67,18 @@ create.model = function(data) {
 # Functions to help with gathering simulation data
 
 # task 1: gather how many predictors were missed by forward selection/LASSO
-analyze.missed = function(betas,
-                          num.strong = 3, num.wai = 10, num.wbc = 10) {
+analyze.missed = function(betas, num.params,
+                          num.strong = 5, num.wai = 10, num.wbc = 10) {
   strongs = paste("Strong", 1:num.strong, sep = "")
   wais = paste("WAI", 1:num.wai, sep = "")
   wbcs = paste("WBC", 1:num.wbc, sep = "")
   captured = names(betas)
 
   return(list(
-   prct.strong = length(intersect(captured, strongs)) / length(strongs),
-   prct.wai = length(intersect(captured, wais)) / length(wais),
-   prct.wbc = length(intersect(captured, wbcs)) / length(wbcs)
+    num.params = num.params,
+    prct.strong = length(intersect(captured, strongs)) / length(strongs),
+    prct.wai = length(intersect(captured, wais)) / length(wais),
+    prct.wbc = length(intersect(captured, wbcs)) / length(wbcs)
   ))
 }
 
@@ -93,34 +92,48 @@ remove.weaknesses = function(data, rm.wai = 0, rm.wbc = 0) {
 
   return(data[, !(names(data) %in% cols.to.remove)])
 }
+```
 
-# task 2 subtask: get the 
-analyze.coefficients = function(betas) {
-  names(betas) = betas
+```{r scenario-parameters-task-1 }
+n = 300
+c = 1
+cor.base = 0.30
+strong.coeff = 5
+num.strong = 5
+num.wai = 10
+num.wbc = 10
+num.p = c(30, 50, 100, 200, 300)
+num.sims = 5
+```
+
+```{r task-1 }
+set.seed(8160)
+task.1.simulations = NULL
+
+for (i in 1:length(num.p)) {
+  for (j in 1:num.sims) {
+    
+    # simulate the dataset with above parameters
+    data = simulate.data(num.p = num.p[i])
+    
+    # create the forward model
+    forward.model = create.forward.model(data)
+    
+    # calculate the percentages of coefficients missed
+    simulation.data = analyze.missed(forward.model$coefficients, 
+                                     num.params = num.p[i])
+    
+    task.1.simulations = bind_rows(task.1.simulations, simulation.data)
+  }
 }
+task.1.simulations
 ```
 
 
-```{r}
+```{r sanity-check }
 data1 = simulate.data()
-data2 = simulate.data()
-# test = remove.weaknesses(data, rm.wai = 1, rm.wbc = 1)
-fit1 = create.model(data1)
-fit2 = create.model(data2)
-prcts1 = analyze.missed(fit1$coefficients)
-prcts2 = analyze.missed(fit2$coefficients)
+fit1 = create.forward.model(data1)
+prcts1 = analyze.missed(fit1$coefficients, num.params = 50)
 ```
-
-```{r}
-test = as.tibble(
-  bind_rows(fit1$coefficients, fit2$coefficients)
-)
-test2 = as.tibble(
-  bind_rows(prcts1, prcts2)
-)
-```
-
-
-
 
 
