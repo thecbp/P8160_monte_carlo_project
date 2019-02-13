@@ -14,7 +14,7 @@ library(matrixcalc)
 # Multiple simulations
 
 ```{r simulation-functions }
-simulate.data = function(n = 300, 
+simulate.data = function(n = 100, 
                          c = 1, cor.base = 0.30, strong.coeff = 5,
                          num.strong = 5, num.wai = 10, num.wbc = 10, num.p = 100) {
   
@@ -56,18 +56,28 @@ simulate.data = function(n = 300,
 }
 
 create.forward.model = function(data) {
+  null = formula(lm(Y ~ 1, data = data))
+  full = formula(lm(Y ~ ., data = data))
+  
   fit = step(object = lm(Y ~ 1, data = data),
-             scope = formula(lm(Y ~ ., data = data)), 
+             scope = list(lower = null, upper = full), 
              direction = "forward", trace = 0)
+  
   return(fit)
 }
+
+create.lasso.model = function(data) {
+  fit = 0
+  return(fit)
+}
+
 ```
 
 ```{r helper-functions }
 # Functions to help with gathering simulation data
 
 # task 1: gather how many predictors were missed by forward selection/LASSO
-analyze.missed = function(betas, num.params,
+analyze.missed = function(betas, num.p,
                           num.strong = 5, num.wai = 10, num.wbc = 10) {
   strongs = paste("Strong", 1:num.strong, sep = "")
   wais = paste("WAI", 1:num.wai, sep = "")
@@ -75,7 +85,7 @@ analyze.missed = function(betas, num.params,
   captured = names(betas)
 
   return(list(
-    num.params = num.params,
+    num.p = num.p,
     prct.strong = length(intersect(captured, strongs)) / length(strongs),
     prct.wai = length(intersect(captured, wais)) / length(wais),
     prct.wbc = length(intersect(captured, wbcs)) / length(wbcs)
@@ -95,45 +105,67 @@ remove.weaknesses = function(data, rm.wai = 0, rm.wbc = 0) {
 ```
 
 ```{r scenario-parameters-task-1 }
-n = 300
-c = 1
+n = 100
+c = 5
 cor.base = 0.30
 strong.coeff = 5
 num.strong = 5
 num.wai = 10
 num.wbc = 10
-num.p = c(30, 50, 100, 200, 300)
+num.p = c(50, 150)
 num.sims = 5
 ```
 
 ```{r task-1 }
 set.seed(8160)
 task.1.simulations = NULL
+models = NULL
 
 for (i in 1:length(num.p)) {
   for (j in 1:num.sims) {
     
     # simulate the dataset with above parameters
-    data = simulate.data(num.p = num.p[i])
+    data = simulate.data(n = n, c = c, cor.base = cor.base,
+                         strong.coeff = strong.coeff, 
+                         num.strong = num.strong, num.wai = num.wai, 
+                         num.wbc = num.wbc, 
+                         num.p = num.p[i])
     
     # create the forward model
     forward.model = create.forward.model(data)
     
     # calculate the percentages of coefficients missed
     simulation.data = analyze.missed(forward.model$coefficients, 
-                                     num.params = num.p[i])
+                                     num.p = num.p[i])
     
+    # Gather created models for diagnostics
     task.1.simulations = bind_rows(task.1.simulations, simulation.data)
+    models = c(models, forward.model)
+    print(paste("Simulation", j, "of", "p =", num.p[i], "done!"))
   }
 }
-task.1.simulations
+```
+
+```{r task-2 }
+task.1.simulations = task.1.simulations %>% 
+  mutate(num.p = as.character(num.p))
+ggplot(data = task.1.simulations, aes(x = prct.wai, fill = num.p, color = num.p)) +
+  geom_density(alpha = 0.1)
 ```
 
 
+```{r}
+colnames(data)
+```
+
+
+
 ```{r sanity-check }
-data1 = simulate.data()
+set.seed(2)
+threshold = 5 * sqrt(log(150) / n)
+data1 = simulate.data(num.p = 101)
 fit1 = create.forward.model(data1)
-prcts1 = analyze.missed(fit1$coefficients, num.params = 50)
+prcts1 = analyze.missed(fit1$coefficients, num.p = 101)
 ```
 
 
