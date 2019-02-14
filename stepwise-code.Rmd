@@ -150,7 +150,7 @@ for (c in 1:length(c.vals)) {
 }
 ```
 
-```{r task-2 }
+```{r task-1-visualization }
 task.1.simulations = task.1.simulations %>% 
   mutate(num.p = as.character(num.p))
 
@@ -163,19 +163,65 @@ ggplot(data = test, aes(x = prct.wai, fill = num.p, color = num.p)) +
   geom_density(alpha = 0.1)
 ```
 
-
-```{r}
-colnames(data)
+```{r saving-sim-data-1 }
+write.csv(test, "task-1-simulation.csv")
 ```
 
+# Task 2
 
+```{r scenario-parameters-task-1 }
+n = 100
+c.vals = 1
+cor.base = 0.30
+strong.coeff = 5
+num.strong = 5
+num.wai = 10
+num.wbc = 10
+num.p = 50
+num.sims = 1
+```
 
-```{r sanity-check }
-set.seed(2)
-threshold = 5 * sqrt(log(150) / n)
-data1 = simulate.data(num.p = 30)
-fit1 = create.forward.model(data1)
-prcts1 = analyze.missed(fit1$coefficients, num.p = 30)
+```{r task-2 }
+set.seed(8161)
+task.2.simulations = NULL
+count = 0
+
+# Remove WAI and WBC one at a time in alternating fashion
+for (k in 1:num.wbc) {
+  for (i in 0:num.wai) {
+    for (j in 1:num.sims) {
+      
+      # simulate the dataset with above parameters
+      data = simulate.data(n = n, c = c, cor.base = cor.base,
+                           strong.coeff = strong.coeff, 
+                           num.strong = num.strong, num.wai = num.wai, 
+                           num.wbc = num.wbc, 
+                           num.p = num.p)
+      
+      # remove weak predictors from the data
+      weakened.data = remove.weaknesses(data, rm.wai = i, rm.wbc = k)
+      
+      # create the forward model
+      forward.model = create.forward.model(weakened.data)
+      
+      # Gather coefficients from estimated model that did not see some weak predictors
+      task.2.simulations = bind_rows(task.2.simulations, 
+                                     c(forward.model$coefficients, list("n.weak.missing" = i + k))
+      )
+      count = count + 1 
+      
+      print(paste("Simulation", count, "with", k, "WBC removed and", i, "WAI removed done!"))
+    }
+  }
+}
+
+# sanitize all the resulting simulation data 
+cleaned.task.2.simulations = task.2.simulations %>% 
+  dplyr::select(-starts_with("Null"), -contains("Intercept"))
+```
+
+```{r}
+# NEED TO PROCESS AND VISUALIZE THE SIMULATION TASK 2 DATA
 ```
 
 
