@@ -9,6 +9,7 @@ output: html_document
 library(tidyverse)
 library(MASS)
 library(matrixcalc)
+library(glmnet)
 ```
 
 # Multiple simulations
@@ -66,9 +67,22 @@ create.forward.model = function(data) {
   return(fit)
 }
 
-create.lasso.model = function(data) {
-  fit = 0
-  return(fit)
+extract.lasso.params = function(data) {
+  
+  # Grab the last parameter name since Y is the last column of the data
+  last.param.name = names(data[, ncol(data) - 1])
+  
+  # Convert the tibble data into matrices for LASSO
+  X = data %>% dplyr::select(., Strong1:last.param.name) %>% as.matrix(.)
+  Y = data %>% dplyr::select(., Y) %>% as.matrix(.)
+  fit.lasso = cv.glmnet(X, Y, nfolds = 10, type.measure = "mse")
+  
+  param.best = fit.lasso$glmnet.fit$beta[, fit.lasso$lambda == fit.lasso$lambda.1se] 
+  
+  # capture non-zero params
+  non.zeroes = param.best[param.best != 0]
+
+  return(non.zeroes)
 }
 
 ```
@@ -136,13 +150,20 @@ for (c in 1:length(c.vals)) {
       # create the forward model
       forward.model = create.forward.model(data)
       
+      # create the LASSO model and extract parameters
+      lasso.parameters = extract.lasso.params(data)
+      
       # calculate the percentages of coefficients missed
-      simulation.data = analyze.missed(forward.model$coefficients, 
-                                       num.p = num.p[i],
-                                       model = "Stepwise")
+      forward.selection.data = analyze.missed(forward.model$coefficients, 
+                                              num.p = num.p[i],
+                                              model = "Stepwise")
+      lasso.data = analyze.missed(lasso.parameters, 
+                                  num.p = num.p[i],
+                                  model = "LASSO")
       
       # Gather created models for diagnostics
-      task.1.simulations = bind_rows(task.1.simulations, simulation.data)
+      task.1.simulations = bind_rows(task.1.simulations, forward.selection.data)
+      task.1.simulations = bind_rows(task.1.simulations, lasso.data)
       
       print(paste("Simulation", j, "of", "p =", num.p[i], "c =", c, "done!"))
     }
@@ -169,7 +190,7 @@ write.csv(test, "task-1-simulation.csv")
 
 # Task 2
 
-```{r scenario-parameters-task-1 }
+```{r scenario-parameters-task-2 }
 n = 100
 c.vals = 1
 cor.base = 0.30
@@ -187,7 +208,7 @@ task.2.simulations = NULL
 count = 0
 
 # Remove WAI and WBC one at a time in alternating fashion
-for (k in 1:num.wbc) {
+for (k in 0:num.wbc) {
   for (i in 0:num.wai) {
     for (j in 1:num.sims) {
       
@@ -204,9 +225,17 @@ for (k in 1:num.wbc) {
       # create the forward model
       forward.model = create.forward.model(weakened.data)
       
+      # create LASSO model and get parameters
+      lasso.params = extract.lasso.params(weakened.data)
+      
       # Gather coefficients from estimated model that did not see some weak predictors
       task.2.simulations = bind_rows(task.2.simulations, 
-                                     c(forward.model$coefficients, list("n.weak.missing" = i + k))
+                                     c(forward.model$coefficients, list("n.weak.missing" = i + k, 
+                                                                        "Model" = "Stepwise"))
+      )
+      task.2.simulations = bind_rows(task.2.simulations, 
+                                     c(lasso.params, list("n.weak.missing" = i + k,
+                                                                        "Model" = "LASSO"))
       )
       count = count + 1 
       
@@ -223,5 +252,13 @@ cleaned.task.2.simulations = task.2.simulations %>%
 ```{r}
 # NEED TO PROCESS AND VISUALIZE THE SIMULATION TASK 2 DATA
 ```
+
+```{r lasso-test }
+data  = simulate.data()
+lasso.params = extract.lasso.params(data)
+test = analyze.missed(lasso.params, num.p = 100, model = "LASSO")
+test2 = bind_rows(lasso.params, lasso.params)
+```
+
 
 
