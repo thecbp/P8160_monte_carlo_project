@@ -267,17 +267,27 @@ sim2 = read_csv(file = "task-2-simulation.csv")
 
 
 ```{r plotting-task1 }
-just.1 = sim1 %>% filter(c == 1)
-ggplot(data = just.1, aes(x = prct.wai)) + 
-  geom_density(fill = "red") 
+just1 = sim1 %>% filter(num.p %in% c(30, 60, 90), model == "Stepwise") %>% mutate(p = as.character(num.p)) 
+ggplot(data = just1, aes(x = prct.wai)) + 
+  geom_density(aes(color = p)) +
+  facet_grid(. ~ c) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  labs(
+    title = "Distribution of percent WBC captured as function of p in forward selection"
+  )
+```
 
-just.2 = sim1 %>% filter(c == 2)
-ggplot(data = just.2, aes(x = prct.wai)) + 
-  geom_density(fill = "blue") 
-
-just.3 = sim1 %>% filter(c == 3)
-ggplot(data = just.3, aes(x = prct.wai)) + 
-  geom_density(fill = "green") 
+```{r plotting-task1 }
+just1 = sim1 %>% filter(num.p %in% c(30, 60, 90), model == "LASSO") %>% mutate(p = as.character(num.p)) 
+ggplot(data = just1, aes(x = prct.wai)) + 
+  geom_density(aes(color = p)) +
+  facet_grid(. ~ c) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  labs(
+    title = "Distribution of percent WBC captured as function of p in LASSO"
+  )
 ```
 
 ```{r plotting-task2 }

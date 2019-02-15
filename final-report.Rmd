@@ -2,7 +2,9 @@
 title: "Project 1: Simulation"
 author: "Group 6: Angel Garcia de la Garza, Yuxin Yang, Christian Pascual"
 date: "2/15/2019"
-output: pdf_document
+output: 
+  pdf_document:
+    fig_caption: true
 ---
 
 # Objectives
@@ -59,7 +61,7 @@ $$S_{WBC} = j: |\beta_j| \leq c\sqrt{\frac{log \, (p)}{n}}\text{, for some c > 0
 
 $$S_{null} = {j: \beta_j = 0, 1 \leq j \leq p}$$
 
-We first generated a variance-covariance matrix with preset correlations to ensure that each predictor satisified the above definitions. We chose a correlation $corr(X_j, X_{j'}) = 0.30$ between the WBC predictors and the first strong predictor. This distinction will allow us to see how these correlations may affect biases in Task 2. After confirming that this matrix was positive and definite, we fed it into a multivariate normal random number generator. An output $Y$ was generated as a function of strong, WBC and WAI predictors with coefficients satisfying the type definitions. 
+We first generated a variance-covariance matrix with preset correlations to ensure that each predictor satisified the above definitions. We chose a correlation $corr(X_j, X_{j'}) = 0.30$ between all the WBC predictors and the first strong predictor. This distinction will allow us to see how these correlations may affect biases in Task 2. After confirming that this matrix was positive and definite, we fed it into a multivariate normal random number generator. An output $Y$ was generated as a function of strong, WBC and WAI predictors with coefficients satisfying the type definitions. 
 
 # Performance measures
 
@@ -69,17 +71,11 @@ It is fairly easy to track which strong and weak predictors are included by the 
 
 ## Task 2
 
-As weak predictors are forced out of the data, we expect that the estimation and standard error for each remaining coefficient will be influenced. Since we know the true value of each strong and weak predictor, we can compare the estimations from LASSO and forward regression against the true value to calculate of bias and accuracy as a function of number of weak predictors missing defined as follows. 
-
-Bias will be defined as:
-
-$$Bias = \bar{\beta}_{sim} - \beta$$
-
-where $\bar{\beta}_{sim}$ is the mean estimate of all the simulation runs, and $\beta$ is the true value of the coefficient.
+As weak predictors are forced out of the data, we expect that the estimation and standard error for each remaining coefficient will be influenced. Since we know the true value of each strong and weak predictor, we can compare the estimations from LASSO and forward regression against the true value to calculate accuracy as a function of number of weak predictors missing defined as follows. 
 
 Accuracy will be defined in terms of the mean square error of the estimate:
 
-$$MSE  =  (\bar{\beta_{sim}} - \beta)^2 + (SE(\beta))^2$$ 
+$$MSE  =  (\bar{\beta_{sim}} - \beta)^2$$ 
 
 where $SE(\beta)$ is the standard error of the beta coefficient over all simulation runs. 
 
@@ -87,12 +83,51 @@ where $SE(\beta)$ is the standard error of the beta coefficient over all simulat
 
 ## Task 1
 
+### Increasing the number of null parameters has minimal effect on weak predictor detection
+
+We found that increasing the amount of null predictors that each variable selection method had to sift through had minimal effect on increasing their ability to detect WBC snd WAI predictors. This small increase in weak predictor detection may be attributable to the increased number of predictors kept by each method as $p$ increased and not to a better detection ability.
+
+Figure 1 demonstrates this trend. From $p = 30$ to $p = 90$, the distribution of WBC predictors detected improves only slightly in forward selection. A similar trend was seen in LASSO, suggesting that this effect is agnostic to selection method. There seems to be some interdependence of the number of parameters $p$ and the threshold multiplier $c$, as seen in the shift in densities through increasing values of $c$. In fact, we found that varying $c$ improved each selection method's ability to detect weak predictors markedly. 
+
+### WAI predictors are easier to detect than WBC predictors
+
+Figure 2 illustrates that increasing $c$ has a large effect on a variable selection method's ability to recognize weak predictors, espeically when they are independent of the strong predictors. This result makes sense since increasing $c$ allows weak predictors to take on higher values, making them easier to distinguish from random noise. 
+
+This increase in detection ability is slightly hampered when the weak predictors are also correlated with a strong predictor, as seen in Figure 3. A large spread of percentages suggests that correlation still makes it difficult, but the increasing means illustrate that there is improvement.
+
 ## Task 2
 
-## Limitations
+### Missing weak predictors decreases accuracy in strong predictor estimates, but this depends on correlation
 
+As stated before, only the first strong predictor had been correlated to all the WBC predictors. Consequently, the other 4 strong predictors are not correlated with any of the weak preditors. Figure 5 illustrates an interesting relationship between the number of missing weak predictors and how bias changes. When the strong predictor is correlated to some of the weak predictors, bias increases faster  in forward selection compared to LASSO. However, this relationship is reversed when the strong predictor is not correlated with weak predictors. This result is expected since LASSO is indifferent to correlated predictors, but still introduces some bias into the model.
+
+We also observed that the rise in MSE for the second strong predictor to level off when 10 weak predictors were missing. This levelling off is explained by the fact that the WAI predictors were iteratively removed from the dataset first. As correlated predictors are removed, their influence has no effect on a predictor that is independent from them. 
+
+## Conclusions
+
+Our simulation study demonstrates that weak predictor detection in variable selection algorithms is a function $c$, where higher $c$ has a greater effect on improving detection. Increasing $p$ has nominal increases to detection, but this is attributable to a tendency of variable selection methods to use more variables as more are available. Forward selection proved to be slightly better than LASSO in detection of weak predictors, especially in the context of WBC predictors. 
+
+The effect of "missing" weak predictors on strong predictor coefficient estimates depends on the presence of correlation between the strong and weak predictors. If correlations exist, the simulations showed that removing weak predictors adversely affects forward regression more while LASSO is realtively unaffected; however, if no correlation exists, this relationship reverses.
+
+Our findings are limited by the amount of simulations we produced and the scope our chosen constants and scnearios for the simulations. Given how the presence or absence of correlation affects the accuracy of estimates, it is worth investigating further how magnitude of correlation and different numbers of correlated weak predictors affects estimates. 
 
 # References
 
 1. Li Y, Hong HG, Ahmed SE, Li Y. Weak signals in high‐dimensional regression: Detection, estimation and prediction. Appl Stochastic Models Bus Ind. 2018;1–16. https://doi.org/10.1002/asmb.2340
 2. Burton, A. , Altman, D. G., Royston, P. and Holder, R. L. (2006), The design of simulation studies in medical statistics. Statist. Med., 25: 4279-4292. doi:10.1002/sim.2673
+
+```{r, out.width = "300px", fig.align="center", echo = FALSE, fig.cap = "Percent of WBC predictors detected as a function of p and c with forward selection" }
+knitr::include_graphics("./img/stepwise.p.png")
+```
+
+```{r, out.width = "300px", fig.align="center", echo = FALSE, fig.cap = "Detection of WAI predictors increases greatly with higher c" }
+knitr::include_graphics("./img/violin.wai.png")
+```
+
+```{r, out.width = "300px", fig.align="center", echo = FALSE, fig.cap = "Detection of WBC predictors increases with c, but still maintains a wide distribution across simulations" }
+knitr::include_graphics("./img/violin.wbc.png")
+```
+
+```{r, out.width = "400px", fig.align="center", echo = FALSE, fig.cap = "Accuracy decreases more in forward selection when the strong predictor is correlated with weak predictors, but vice-versa when it is not" }
+knitr::include_graphics("./img/mse.sidebyside.png")
+```
