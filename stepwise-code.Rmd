@@ -171,21 +171,17 @@ for (c in 1:length(c.vals)) {
 }
 ```
 
+```{r saving-sim-data-1 }
+write.csv(task.1.simulations, "task-1-simulation.csv")
+```
+
 ```{r task-1-visualization }
 task.1.simulations = task.1.simulations %>% 
   mutate(num.p = as.character(num.p))
 
-c.vals = c(rep(1, 700), rep(2, 700), rep(3, 700))
 
-test = task.1.simulations %>% 
-  mutate(c = c.vals)
-
-ggplot(data = test, aes(x = prct.wai, fill = num.p, color = num.p)) +
+ggplot(data = task.1.simulations, aes(x = prct.wai, fill = num.p, color = num.p)) +
   geom_density(alpha = 0.1)
-```
-
-```{r saving-sim-data-1 }
-write.csv(test, "task-1-simulation.csv")
 ```
 
 # Task 2
@@ -199,66 +195,67 @@ num.strong = 5
 num.wai = 10
 num.wbc = 10
 num.p = 50
-num.sims = 1
+num.sims = 100
 ```
 
 ```{r task-2 }
 set.seed(8161)
-task.2.simulations = NULL
+task.2.bias.simulations = NULL
+variance.sims = NULL
 count = 0
 
-# Remove WAI and WBC one at a time in alternating fashion
-for (k in 0:num.wbc) {
-  for (i in 0:num.wai) {
-    for (j in 1:num.sims) {
-      
-      # simulate the dataset with above parameters
-      data = simulate.data(n = n, c = c, cor.base = cor.base,
-                           strong.coeff = strong.coeff, 
-                           num.strong = num.strong, num.wai = num.wai, 
-                           num.wbc = num.wbc, 
-                           num.p = num.p)
-      
-      # remove weak predictors from the data
-      weakened.data = remove.weaknesses(data, rm.wai = i, rm.wbc = k)
-      
-      # create the forward model
-      forward.model = create.forward.model(weakened.data)
-      
-      # create LASSO model and get parameters
-      lasso.params = extract.lasso.params(weakened.data)
-      
-      # Gather coefficients from estimated model that did not see some weak predictors
-      task.2.simulations = bind_rows(task.2.simulations, 
-                                     c(forward.model$coefficients, list("n.weak.missing" = i + k, 
-                                                                        "Model" = "Stepwise"))
-      )
-      task.2.simulations = bind_rows(task.2.simulations, 
-                                     c(lasso.params, list("n.weak.missing" = i + k,
-                                                                        "Model" = "LASSO"))
-      )
-      count = count + 1 
-      
-      print(paste("Simulation", count, "with", k, "WBC removed and", i, "WAI removed done!"))
+# Remove WAI and WBC oone by one
+for (i in 0:(num.wai + num.wbc)) {
+  for (j in 1:num.sims) {
+    
+    if (i <= 10) {
+      rm.wai = i
+      rm.wbc = 0
+    } else {
+      rm.wai = 10
+      rm.wbc = i - 10
     }
+    
+    # simulate the dataset with above parameters
+    data = simulate.data(n = n, c = c, cor.base = cor.base,
+                         strong.coeff = strong.coeff, 
+                         num.strong = num.strong, num.wai = num.wai, 
+                         num.wbc = num.wbc, 
+                         num.p = num.p)
+    
+    # remove weak predictors from the data
+    weakened.data = remove.weaknesses(data, rm.wai = rm.wai, rm.wbc = rm.wbc)
+    
+    # create the forward model
+    forward.model = create.forward.model(weakened.data)
+    
+    # create LASSO model and get parameters
+    lasso.params = extract.lasso.params(weakened.data)
+    
+    # Gather coefficients from estimated model that did not see some weak predictors
+    task.2.bias.simulations = bind_rows(task.2.bias.simulations, 
+                                   c(forward.model$coefficients, list("n.wbc.missing" = rm.wbc,
+                                                                      "n.wai.missing" = rm.wai,
+                                                                      "Model" = "Stepwise"))
+    )
+    task.2.bias.simulations = bind_rows(task.2.bias.simulations, 
+                                   c(lasso.params, list("n.wbc.missing" = rm.wbc,
+                                                        "n.wai.missing" = rm.wai,
+                                                        "Model" = "LASSO"))
+    )
+    count = count + 1 
+    
+    print(paste("Simulation", count, "with", i, "weak predictors removed!"))
   }
 }
 
 # sanitize all the resulting simulation data 
-cleaned.task.2.simulations = task.2.simulations %>% 
-  dplyr::select(-starts_with("Null"), -contains("Intercept"))
-```
-
-```{r}
-# NEED TO PROCESS AND VISUALIZE THE SIMULATION TASK 2 DATA
-```
-
-```{r lasso-test }
-data  = simulate.data()
-lasso.params = extract.lasso.params(data)
-test = analyze.missed(lasso.params, num.p = 100, model = "LASSO")
-test2 = bind_rows(lasso.params, lasso.params)
+cleaned.task.2.bias.simulations = task.2.bias.simulations %>% 
+  dplyr::select(-starts_with("Null"), -contains("Intercept")) %>% 
+  dplyr::select(Model, n.wai.missing, n.wbc.missing, Strong1, Strong2, Strong3, Strong4, Strong5)
 ```
 
 
-
+```{r saving-sim-data-1 }
+write.csv(cleaned.task.2.bias.simulations, "task-2-simulation.csv")
+```
