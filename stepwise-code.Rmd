@@ -259,3 +259,39 @@ cleaned.task.2.bias.simulations = task.2.bias.simulations %>%
 ```{r saving-sim-data-1 }
 write.csv(cleaned.task.2.bias.simulations, "task-2-simulation.csv")
 ```
+
+```{r}
+sim1 = read_csv(file = "task-1-simulation.csv")
+sim2 = read_csv(file = "task-2-simulation.csv")
+```
+
+
+```{r plotting-task1 }
+just.1 = sim1 %>% filter(c == 1)
+ggplot(data = just.1, aes(x = prct.wai)) + 
+  geom_density(fill = "red") 
+
+just.2 = sim1 %>% filter(c == 2)
+ggplot(data = just.2, aes(x = prct.wai)) + 
+  geom_density(fill = "blue") 
+
+just.3 = sim1 %>% filter(c == 3)
+ggplot(data = just.3, aes(x = prct.wai)) + 
+  geom_density(fill = "green") 
+```
+
+```{r plotting-task2 }
+processed.sim2 = sim2 %>% 
+  mutate(n.missing = n.wai.missing + n.wbc.missing,
+         Strong1.bias = Strong1 - 5,
+         Strong2.bias = Strong2 - 5) %>% 
+  group_by(Model, n.missing) %>% 
+  summarize(
+    S1.bias = mean(Strong1.bias),
+    S2.bias = mean(Strong2.bias)) %>% 
+  ggplot(data = .) + 
+    geom_line(aes(x = n.missing, y = S1.bias, color = Model)) +
+    geom_line(aes(x = n.missing, y = S2.bias, color = Model))
+processed.sim2
+```
+
