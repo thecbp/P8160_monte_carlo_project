@@ -62,5 +62,27 @@ We looked at the difference between the coefficient estimates and the known true
 
 ## Findings
 
+### Increasing p doesn't help detection of weak predictors
 
+Our findings showed that increasing the amount of predictors nominally increased detection of weak predictors. However, this phenomenon is explained by each variable selection method merely picking up more predictors in the final model, as opposed to getting better at picking them out. 
+
+![wbc](./img/lasso.p.png)
+
+### Increasing c *did* help detection of weak predictors
+
+Increasing the threshold multiplier enabled both variable selection methods to better capture weak predictors. For weak and independent predictors, increasing c massively increased the ability of each method to detect them. This improvement was present, but less pronounced in weak but correlated predictors.
+
+![wbc](./img/violin.wai.png)
+
+![wbc](./img/violin.wbc.png)
+
+### Bias due to missing weak predictors is affected by correlation 
+
+Unlike the aforementioned findings, the presence of correlation actually affects which variable selection model is more biased as weak predictors are forced to be missing from the dataset. 
+
+When the strong predictor is correlated with many weak predictors, forward selection experiences more bias as they are removed from the data. LASSO, which is known to be indifferent to correlation, does not experience the same level of bias. We also observed that as WAI predictors were removed, bias actually decreased for LASSO, though we did not investigate reasons for this. 
+
+When no weak predictors were correlated with the strong, the reverse was observed. LASSO already introduced bias to the coefficients in order to decrease coefficient variability, so we see that its bias increases as predictors are removed. Conversely, with no correlation to bias estimates, forward selection does well to continue estimating the strong predictor.
+
+![wbc](./img/bias.sidebyside.png
 
